@@ -12,7 +12,7 @@ export default function App() {
   const [ledSending, setLedSending] = useState(false);
 
   const sendMessage = async (msg: string) => {
-    const res = await fetch("http://localhost:3001/send", {
+    const res = await fetch("http://localhost:5001/send", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -26,28 +26,51 @@ export default function App() {
   // Autofocus the first input when component mounts
   useEffect(() => {
     firstRef.current?.focus();
-    // also select content if barcode scanner re-uses focus
     firstRef.current?.select();
   }, []);
 
-  const onFirstKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const onFirstKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
-      // move focus to second input automatically
-      secondRef.current?.focus();
-      secondRef.current?.select();
+      if (firstValue && firstValue.length < 6) {
+        secondRef.current?.focus();
+        secondRef.current?.select();
+      } else {
+        setFirstValue("");
+        setMessage("Pogresan format vezivaca!");
+        await sendMessage("Pogresan format vezivaca");
+        firstRef.current?.focus();
+        firstRef.current?.select();
+        setTimeout(() => {
+          setMessage("");
+        }, 3000);
+      }
     }
   };
 
   // When second input is completed, automatically send to server
   const onSecondKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
-      console.log("Second input completed, submitting scan...");
-      await submitScan();
+      if (secondValue.length === 6) {
+        await submitScan();
+        firstRef.current?.focus();
+        firstRef.current?.select();
+      } else {
+        setSecondValue("");
+        setMessage(`${firstValue.trim()} greška: Pogrešan format kotura`);
+        await sendMessage(
+          `${firstValue.trim()} greska: Pogresan format kotura`
+        );
+
+        secondRef.current?.focus();
+        secondRef.current?.select();
+        setTimeout(() => {
+          setMessage("");
+        }, 3000);
+      }
     }
   };
 
   async function submitScan() {
-    // Basic validation
     if (!firstValue.trim() || !secondValue.trim()) {
       setMessage("Oba unosa moraju biti popunjena.");
       setTimeout(() => setMessage(null), 2500);
@@ -58,32 +81,22 @@ export default function App() {
     setMessage(null);
 
     try {
-      // POST to example server - replace URL with your real endpoint
-      // const res = await fetch("https://example.com/api/scan", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({
-      //     code1: firstValue.trim(),
-      //     code2: secondValue.trim(),
-      //   }),
-      // });
+      const res = await fetch("http://10.21.22.254:8087/spakuj_kotur", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mbr: firstValue.trim(),
+          proizvod: secondValue.trim(),
+        }),
+      });
 
-      // // try to parse JSON, but fallback to text
-      // let text: string;
-      // try {
-      //   const json = await res.json();
-      //   text = json.message || JSON.stringify(json);
-      // } catch {
-      //   text = await res.text();
-      // }
-      await sendMessage(
-        `OCITAN KOTUR: ${firstValue.trim()}, KORISNIK: ${secondValue.trim()}!`
-      );
+      // try to parse JSON, but fallback to text
+      let text: string;
+      const json = await res.json();
+      text = json.message || json.detail;
+      await sendMessage(text);
 
-      // show full-screen message
-      setMessage(
-        `USPESNO POSLAT VEZAN KOTUR: ${firstValue.trim()} KORISNIK: ${secondValue.trim()}!`
-      );
+      setMessage(text);
     } catch (err: any) {
       await sendMessage("GRESKA!");
       setMessage("Greška pri slanju: " + (err?.message || String(err)));
@@ -125,7 +138,6 @@ export default function App() {
           </h1>
         </div>
         <div className="rounded-2xl backdrop-blur-sm bg-white/5 ring-1 ring-white/10 p-8 shadow-2xl">
-          
           <h1 className="text-4xl text-center font-semibold text-white mb-4">
             Unos skeniranjem barkoda kartice vezivača i kotura
           </h1>
