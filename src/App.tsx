@@ -50,7 +50,7 @@ export default function App() {
   // When second input is completed, automatically send to server
   const onSecondKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
-      if (secondValue.length === 6) {
+      if (secondValue && secondValue.length > 5 && secondValue.length < 8) {
         await submitScan();
         firstRef.current?.focus();
         firstRef.current?.select();
